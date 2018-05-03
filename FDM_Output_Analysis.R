@@ -20,32 +20,20 @@
 #Libraries
 library(raster)
 
-
-
-
 #Set working directory
-setwd("C:/Users/jcronan/Documents/GitHub/FDM-Eglin-Analysis")
+setwd("C:/Users/jcronan/Documents/GitHub/FDM-Eglin-Analysis/inputs")
 
 #Import input parameters
 params <- read.csv("input_params.csv", header=TRUE, 
   sep=",", na.strings="NA", dec=".", strip.white=TRUE)
 
+setwd("C:/usfs_cronan_gis/SEF/FDM_outputs_vFP/run_102")
+
 #Import a single raster file to use header data to reference number of columns for matrix(scan())
 f.head <- raster("r1021101.asc")
 
 #Import .asc files
-f.map <- matrix(scan(paste("sef_", RUN, "_fmap_R",rows,"xC",cols,".txt",
-                           sep = ""),skip = fh.adj),ncol=cols,byrow=T)
-
-
-
-
-
-
-fm.1 <- matrix(scan("r1021101.asc",skip = 6),ncol=253,byrow=T)
-str(fm.1)
-str(f.head)
-f.head[1]
+fm.1 <- matrix(scan("r1021101.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
 
 
 
