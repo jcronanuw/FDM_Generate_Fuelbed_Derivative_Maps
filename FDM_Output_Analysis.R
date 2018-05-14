@@ -20,6 +20,31 @@
 #Libraries
 library(raster)
 
+#Variable of interest
+#List column number in fft output table for this variable:
+# = Benchmark ROS
+fccsVar <- 19
+#19 -- Custom Flame Length prediction
+
+#Files
+type_in <- "f"
+type_out <- "l"
+run <- "0888"
+rx_fire <- "100"
+intervals <- c("05", as.character(seq(10,50,5)))
+
+filenames_in <- vector()
+filenames_out <- vector()
+for(i in 1:length(intervals))
+{
+  filenames_in[i] <- paste(type_in, run, rx_fire, intervals[i], ".asc", sep = "")
+  filenames_out[i] <- paste(type_out, run, rx_fire, intervals[i], ".asc", sep = "")
+}
+
+#Set up a list to hold input and output maps
+maps_in <- list()
+maps_out <- list()
+
 #Set working directory
 setwd("C:/Users/jcronan/Documents/GitHub/FDM-Eglin-Analysis/inputs")
 
@@ -30,61 +55,224 @@ params <- read.csv("input_params.csv", header=TRUE,
 fft <- read.csv("fft_outputs.csv", header=TRUE, 
                 sep=",", na.strings="NA", dec=".", strip.white=TRUE)
 
+predicted_pigs <- read.table("predicted_pigs_altered_DELETE.csv", header=TRUE, 
+                             sep=",", na.strings="NA", dec=".", strip.white=TRUE)
 
 setwd("C:/usfs_sef_outputs_FDM/results_r888")
 
 #Import a single raster file to use header data to reference number of columns for matrix(scan())
-f.head <- raster("f088810005.asc")
+f.head <- raster(filenames_in[1])
 
 #Import .asc files
-f05 <- matrix(scan("f088810005.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f10 <- matrix(scan("f088810010.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f15 <- matrix(scan("f088810015.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f20 <- matrix(scan("f088810020.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f25 <- matrix(scan("f088810025.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f30 <- matrix(scan("f088810030.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f35 <- matrix(scan("f088810035.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f40 <- matrix(scan("f088810040.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f45 <- matrix(scan("f088810045.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-f50 <- matrix(scan("f088810050.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-
-#Make a map of litter loading
-f05_litter <- lapply(f05, function(x) fft$LLM_litter_load[match(x, fft$Fuelbed_number)])
-f05_benchmark_ros <- lapply(f05, function(x) fft$Benchmark_ROS[match(x, fft$Fuelbed_number)])
-
-f05_lm <- matrix(f05_litter, f.head@nrows, f.head@ncols)
-str(f05_lm)
-head(f05_lm)
-head(f05_litter)
-length(f05_litter)
-length(f05)
-
-test <- vector()
-for(i in 1:length(f05))
+for(i in 1:length(intervals))
 {
-  test[i] <- length(f05_litter[[i]])
+  maps_in[[i]] <- matrix(scan(filenames_in[i],skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+}
+#f05 <- matrix(scan("f088810005.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f10 <- matrix(scan("f088810010.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f15 <- matrix(scan("f088810015.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f20 <- matrix(scan("f088810020.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f25 <- matrix(scan("f088810025.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f30 <- matrix(scan("f088810030.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f35 <- matrix(scan("f088810035.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f40 <- matrix(scan("f088810040.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f45 <- matrix(scan("f088810045.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#f50 <- matrix(scan("f088810050.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+
+#Swicth Working Directories
+setwd("C:/Users/jcronan/Documents/GitHub/EglinAirForceBase/inputs")
+#Import master fuelbed lookup table
+lut <- read.csv("sef_lut_all.csv", header=TRUE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+
+
+#Subset fuelbeds that were deleted, but remain on FCCS basemap
+deleted <- lut$fuelbed[lut[[12]] == 0]
+
+#Identify their replacements
+replacements <- lut$post_1[lut[[12]] == 0]
+
+#Replace deleted fuelbeds with replacements for each map.
+for(i in 1:length(intervals))
+  {
+  if(is.list(mapply(function(x) replacements[deleted %in% x], 
+                    maps_in[[i]][maps_in[[i]] %in% deleted])) == T)
+  {
+    maps_in[[i]] <- maps_in[[i]]
+    } else
+      {
+        #Replace deleted fuelbeds
+        maps_in[[i]][maps_in[[i]] %in% deleted] <- mapply(function(x) replacements[deleted %in% x], 
+                                                          maps_in[[i]][maps_in[[i]] %in% deleted])
+      }
+}
+
+#Change number of digits in fft object from 5 to 7 by adding zeros. This will allign fuelbed naming
+#convention with that in output fuelbed maps.
+
+#Split fuelbed numbers into character digits
+fb_digits <- strsplit(as.character(fft$Fuelbed_number), split = "")
+
+#Add in two zeroes so structure matches fuelbed output maps
+new_fb_digits <- list()
+for(i in 1:length(fb_digits))
+{
+  new_fb_digits[[i]] <- c(fb_digits[[i]][1], 
+                     "0", 
+                     fb_digits[[i]][2], 
+                     fb_digits[[i]][3], 
+                     fb_digits[[i]][4], 
+                     "0", 
+                     fb_digits[[i]][5])
+}
+
+#Merge character digit elements together and convert to numeric string
+new_fb_numeric <- list()
+for(i in 1:length(fb_digits))
+{
+  new_fb_numeric[[i]] <- as.numeric(
+    paste(new_fb_digits[[i]][1], 
+          new_fb_digits[[i]][2], 
+          new_fb_digits[[i]][3], 
+          new_fb_digits[[i]][4], 
+          new_fb_digits[[i]][5], 
+          new_fb_digits[[i]][6], 
+          new_fb_digits[[i]][7], 
+          sep = ""))
+}
+
+#Convert from list to vector
+new_fb <- unlist(new_fb_numeric)
+
+#Create a new FFT output lookup table that crosswalks complete fuelbed list with Anne Andreu's FCCS fuelbeds.
+fft_complete <- fft
+fft_complete <- fft_complete[NULL,]
+
+for(i in 1:length(predicted_pigs$fuelbed))
+{
+    fft_complete[i,] <- fft[new_fb == predicted_pigs$andreu_fuelbed_no[i],]
+}
+
+#Convert maps to vectors (will result in quicker crosswalks with FFT FCCS fuelbed properties).
+base_vector <- list()
+for(i in 1:length(intervals))
+{
+  base_vector[[i]] <- as.vector(maps_in[[i]])
+}
+
+#Crosswalk fuelbed maps (as vectors) with desired fuels and predicted fire behavior variables.
+#Desired variables
+#Litter and herb loading
+#Total surface fuel load
+#Aboveground Tree Biomass
+#Shrub Loading
+#DWD
+#Total aboveground loading
+#Flame Length
+#Carbon Mass
+
+names(fft_complete)
+
+
+#Create vector for desired crosswalk variables
+var_vector <- list()
+
+#Crosswalk fuelbed numbers with crosswalk variables
+#f05_vector_fccsVar <- fft_complete$Benchmark_ROS[match(f05_vector, predicted_pigs$fuelbed)]
+for(i in 1:length(intervals))
+{
+  var_vector[[i]] <- as.vector(fft_complete[[fccsVar]])[match(base_vector[[i]], predicted_pigs$fuelbed)]
+}
+
+#Convert vectors into matrices
+#f05_fccsVar <- matrix(f05_vector_fccsVar, f.head@nrows, f.head@ncols)
+for(i in 1:length(intervals))
+{
+  maps_out[[i]] <- matrix(var_vector[[i]], f.head@nrows, f.head@ncols)
+}
+
+#Zero value fuelbeds
+zeros <- c(5099000, 6000000)
+
+#Set values from NA to zero for developed land and water fuelbeds (not procssed through FFT)
+#f05_fccsVar[f05 %in% zeros] <- 0
+for(i in 1:length(intervals))
+{
+  maps_out[[i]][maps_in[[i]] %in% zeros] <- 0
+}
+
+
+#Testing
+#Make sure crosswalk was successful
+test_results <- data.frame(map = intervals, 
+                           multiples = rep(0,length(intervals)), 
+                           fuelbeds_no_fccsVar = rep(0,length(intervals)), 
+                           fuelbeds_na__fccsVar = rep(0,length(intervals)))
+na_fuelbeds <- list()
+
+for(a in 1:length(intervals))
+{
+  test_base <- maps_in[[a]]
+  test_var <- maps_out[[a]]
+  crosswalk_values <- vector()
+  for(i in 1:length(new_fb))
+    {
+    crosswalk_values[i] <- length(unique(test_var[test_base == new_fb[i]])) 
+    }
+  #Results should be 0, 1
+  test_results[a,2] <- ifelse(any(unique(crosswalk_values) %in% c(0,1)),"OK", "ERROR")
+  
+  #Results should be zero
+  test_results[a,3] <- ifelse(length(test_base[test_base %in% new_fb[crosswalk_values == 0]]) == 0, "OK", "ERROR")
+  
+  test_results[a,4] <- ifelse(length(test_var[is.na(test_var) == T]) == length(test_base[test_base == -9999]), "OK", "ERROR")
+  na_fuelbeds[[a]] <- sort(unique(test_base[is.na(test_var) == T]))
   }
 
+#Show test results
+test_results
+na_fuelbeds
 
-names(fft)
+#Replace NA values with -9999. Ascii to raster batch conversion script cannot handle NA values.
+for(i in 1:length(intervals))
+{
+  maps_out[[i]][is.na(maps_out[[i]]) == T] <- -9999
+}
 
-str(f05)
+##Open metadata for spatial datasets
+setwd("C:/Users/jcronan/Documents/GitHub/FDM-Eglin-Analysis/inputs")
+metadata <- read.table(paste("eglin_raster_metadata.txt", sep = ""), 
+                       header=TRUE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+options(digits = 15)
 
-aa <- matrix(c(1,9,1,2,3,4,4,4,1,3,2,1,3,4,4,4),4,4)
-bb <- data.frame(a = c(1,2,3,4), b = c(11, 22, 33, 44))
+#Create vectors from metadata list
+md.desc <- as.vector(unlist(metadata[,1]))
+md.valu <- as.vector(unlist(metadata[,2]))
+#Create a name tag for simulation year to add to output file name.
+simYear_name_tag <- ifelse(a < 10, paste("0", as.character(a), sep = ""), as.character(a))
 
-cc <-lapply(aa, function(x) bb$b[match(x, bb$a)])
-matrix(cc, 4,4)
+#Seprate header metadata into seperate lines.
+line1 <- paste(paste(md.desc[1]), paste("         ", md.valu[1]))
+line2 <- paste(paste(md.desc[2]), paste("         ", md.valu[2]))
+line3 <- paste(paste(md.desc[3]), paste("     ", md.valu[3]))
+line4 <- paste(paste(md.desc[4]), paste("     ", md.valu[4]))
+line5 <- paste(paste(md.desc[5]), paste("      ", md.valu[5]))
+line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
 
+setwd("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888/flame_length")
+for(i in 1:length(intervals))
+{
+  #Print header information to map
+  cat(line1, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
+  cat(line2, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
+  cat(line3, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
+  cat(line4, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
+  cat(line5, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
+  cat(line6, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
+  
+  #Save stand map.
+  cat(c(t(maps_out[[i]])), file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
+  }
 
-aa[aa == bb$a] <- bb$b
-
-
-bb$a[1]
-
-
-cc <- aa == bb$a]
-cc
 
 
 

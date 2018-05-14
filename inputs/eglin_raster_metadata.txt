@@ -1,0 +1,7 @@
+title, values
+ncols, 3491.0000000
+nrows, 1771.0000000
+xllcorner, 491275.0975280
+yllcorner, 3359307.8503251
+cellsize, 30.0000000
+NODATA_value, -9999.0000000
