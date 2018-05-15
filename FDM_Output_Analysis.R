@@ -31,7 +31,7 @@ type_in <- "f"
 type_out <- "l"
 run <- "0888"
 rx_fire <- "100"
-intervals <- c("05", as.character(seq(10,50,5)))
+intervals <- c("00", "05", as.character(seq(10,50,5)))
 
 filenames_in <- vector()
 filenames_out <- vector()
@@ -58,26 +58,18 @@ fft <- read.csv("fft_outputs.csv", header=TRUE,
 predicted_pigs <- read.table("predicted_pigs_altered_DELETE.csv", header=TRUE, 
                              sep=",", na.strings="NA", dec=".", strip.white=TRUE)
 
-setwd("C:/usfs_sef_outputs_FDM/results_r888")
+setwd("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888_in/fuelbed_no")
 
 #Import a single raster file to use header data to reference number of columns for matrix(scan())
 f.head <- raster(filenames_in[1])
+
+setwd("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888_in/fuelbed_no")
 
 #Import .asc files
 for(i in 1:length(intervals))
 {
   maps_in[[i]] <- matrix(scan(filenames_in[i],skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
 }
-#f05 <- matrix(scan("f088810005.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f10 <- matrix(scan("f088810010.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f15 <- matrix(scan("f088810015.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f20 <- matrix(scan("f088810020.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f25 <- matrix(scan("f088810025.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f30 <- matrix(scan("f088810030.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f35 <- matrix(scan("f088810035.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f40 <- matrix(scan("f088810040.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f45 <- matrix(scan("f088810045.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
-#f50 <- matrix(scan("f088810050.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
 
 #Swicth Working Directories
 setwd("C:/Users/jcronan/Documents/GitHub/EglinAirForceBase/inputs")
@@ -170,9 +162,6 @@ for(i in 1:length(intervals))
 #Flame Length
 #Carbon Mass
 
-names(fft_complete)
-
-
 #Create vector for desired crosswalk variables
 var_vector <- list()
 
@@ -200,6 +189,15 @@ for(i in 1:length(intervals))
   maps_out[[i]][maps_in[[i]] %in% zeros] <- 0
 }
 
+#Assign negative number to development and water fuelbeds
+for(i in 1:length(intervals))
+{
+  assignments <- seq((-1*length(zeros)),-1,1)
+  for (a in 1:length(zeros))
+  {
+    maps_out[[i]][maps_in[[i]] == zeros[a]] <- assignments[a]
+  }
+}
 
 #Testing
 #Make sure crosswalk was successful
@@ -258,7 +256,7 @@ line4 <- paste(paste(md.desc[4]), paste("     ", md.valu[4]))
 line5 <- paste(paste(md.desc[5]), paste("      ", md.valu[5]))
 line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
 
-setwd("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888/flame_length")
+setwd("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888_out/r_0888_flameLength/ascii")
 for(i in 1:length(intervals))
 {
   #Print header information to map
@@ -272,6 +270,70 @@ for(i in 1:length(intervals))
   #Save stand map.
   cat(c(t(maps_out[[i]])), file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
   }
+
+#CREATE CHANGE MAPS AND ASSOCIATED METRICS
+maps_out_zero <- maps_out
+for(i in 1:length(maps_out_zero))
+{
+  maps_out_zero[[i]][maps_out_zero[[i]] < 0] <- 0
+}
+
+flameLength_change <- list()
+change_out <- c("change_10_0.asc","change_20_0.asc","change_30_0.asc", 
+                "change_50_0.asc", "change_50_0.asc")
+b <- c(3,5,7,9,11)
+
+for(i in 1:length(change_out))
+{
+  flameLength_change[[i]] <- maps_out[[b[i]]] - maps_out[[1]]
+}
+
+for(i in 1:length(change_out))
+{
+  flameLength_change[[i]][maps_in[[1]] %in% zeros] <- -8888
+  flameLength_change[[i]][maps_in[[1]] == -9999] <- -9999
+}
+
+##Open metadata for spatial datasets
+setwd("C:/Users/jcronan/Documents/GitHub/FDM-Eglin-Analysis/inputs")
+metadata <- read.table(paste("eglin_raster_metadata.txt", sep = ""), 
+                       header=TRUE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+options(digits = 15)
+
+#Create vectors from metadata list
+md.desc <- as.vector(unlist(metadata[,1]))
+md.valu <- as.vector(unlist(metadata[,2]))
+#Create a name tag for simulation year to add to output file name.
+simYear_name_tag <- ifelse(a < 10, paste("0", as.character(a), sep = ""), as.character(a))
+
+#Seprate header metadata into seperate lines.
+line1 <- paste(paste(md.desc[1]), paste("         ", md.valu[1]))
+line2 <- paste(paste(md.desc[2]), paste("         ", md.valu[2]))
+line3 <- paste(paste(md.desc[3]), paste("     ", md.valu[3]))
+line4 <- paste(paste(md.desc[4]), paste("     ", md.valu[4]))
+line5 <- paste(paste(md.desc[5]), paste("      ", md.valu[5]))
+line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
+
+setwd("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888_out/r_0888_flameLength/ascii_change")
+for(i in 1:length(change_out))
+{
+  #Print header information to map
+  cat(line1, file = paste(change_out[i], sep = ""), fill = T, append = T)#
+  cat(line2, file = paste(change_out[i], sep = ""), fill = T, append = T)#
+  cat(line3, file = paste(change_out[i], sep = ""), fill = T, append = T)#
+  cat(line4, file = paste(change_out[i], sep = ""), fill = T, append = T)#
+  cat(line5, file = paste(change_out[i], sep = ""), fill = T, append = T)#
+  cat(line6, file = paste(change_out[i], sep = ""), fill = T, append = T)#
+  
+  #Save stand map.
+  cat(c(t(flameLength_change[[i]])), file = paste(change_out[i], sep = ""), fill = T, append = T)#
+}
+
+
+
+
+
+
 
 
 
