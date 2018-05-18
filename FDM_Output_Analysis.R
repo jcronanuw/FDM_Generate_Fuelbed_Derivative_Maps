@@ -1,8 +1,12 @@
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#PURPOSE: This script imports and analyzes FDM v2.0 outputs for the Eglin Air Force Base
-#50-year prescribed fire simulations. Analysis will consist of different ways to quantify fuel
-#and fire behavior hazard at the base under different prescribed burning scenarios including
+#PURPOSE: This script imports FDM v2.0 FUELBED MAP outputs for the Eglin Air Force Base
+#50-year prescribed fire simulations and maps simulated and changes in FFT outputs that serve 
+#as indicators of fuel and fire hazard. 
+
+#The script is meant to be run on outputs from an individual simulation.
+#Please specify FFT outputs you want to crosswalk with fuelbed numbers.
+
 #1) 125% of current -- 125k acres prescribed burned/year
 #2) 100% of current -- 100k acres prescribed burned/year
 #3) 75% of current -- 75k acres prescribed burned/year
@@ -24,18 +28,38 @@
 #Libraries
 library(raster)
 
+#FFT OUPUT
 #Variable of interest
 #List column number in fft output table for this variable:
 #List name of variable as it will appear in outgoing file structure.
-fccsVar_col <- c(4,6)
-fccsVar_name <- c("flameLength", "availableFuels")
+#fccsVar_col <- c(3,4,5,6,7,8,9)
+#fccsVar_name <- c("fineFuelLoad", "forestFloorLoad", "totalFuelLoad","flameLength", "rateOfSpread", 
+#                  "availableFuels", "crownFirePotential")
+
+fccsVar_col <- c(7,8,9)
+#fccsVar_name <- c("rateOfSpread", "availableFuels", "crownFirePotential")
+
+#FUELBED CONDITIONS
+#Variable of interest
+#List name of variable as it will appear in outgoing file structure.
+fuelbedVar_name <- c("cover", "mfri")
+fuelbedVar_out <- c("r", "s")
 
 #Run Parameters
 type_in <- "f"
-type_out <- c("l", "a")
+#type_out <- c("t", "u", "v", "w", "x", "y", "z")
+type_out <- c("x", "y", "z")
+
 run <- "0888"
 rx_fire <- "100"
 intervals <- c("00", "05", as.character(seq(10,50,5)))
+
+#Create a lookup table to be printed to the directory as a reference.
+file_out_lookup <- data.frame(file_start_letter = type_out, hazard_measure = fccsVar_name)
+
+#Save file
+setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_out", sep = ""))
+cat(c(t(file_out_lookup)), file = "file_out_lookup.txt", fill = T, append = T)#
 
 #Set up filenames for incoming FDM maps
 filenames_in <- vector()
@@ -157,20 +181,26 @@ for(i in 1:length(predicted_pigs$fuelbed))
   fft_add[i,] <- fft[new_fb == predicted_pigs$andreu_fuelbed_no[i],]
 }
 
+#Replace NA values with zero
+fft_add[is.na(fft_add) == T] <- 0
+
+
 #Measures I need to create from fft outputs
-fine_surface_fuel_load <- fft_add$LLM_litter_load + fft_add$Herb_primary_load + fft_add$Shrub_primary_crown_load
+fine_surface_fuel_load <- fft_add$LLM_litter_load + fft_add$Herb_primary_load + 
+  fft_add$Shrub_primary_crown_load + fft_add$Woody_sound_1hr_load
 forest_floor_load <- fft_add$LLM_litter_load + fft_add$Ground_upperduff_load
 
 
 #Create a data.frame that has variables you want to analyze.
-fft_complete <- data.frame("Fuelbed_number" == fft_add$Fuelbed_number, 
-                           "Fuelbed_name" == fft_add$Fuelbed_name, 
-                           "Custom_ROS" == fft_add$Custom_ROS, 
-                           "Custom_FL" == fft_add$Custom_FL, 
-                           "Crown_fire_potential" == fft_add$Crown_fire_potential, 
-                           "Available_fuel_potential" == fft_add$Available_fuel_potential, 
-                           "Fine_surface_load" == fine_surface_fuel_load, 
-                           "Forest_floor_load" = forest_floor_load)
+fft_complete <- data.frame("Fuelbed_number" = fft_add$Fuelbed_number, 
+                           "Fuelbed_name" = fft_add$Fuelbed_name, 
+                           "Fine_fuel_load" = fine_surface_fuel_load, 
+                           "Forest_floor_load" = forest_floor_load, 
+                           "Total_fuel_load" = fft_add$Total_aboveground_biomass, 
+                           "Custom_FL" = fft_add$Custom_FL, 
+                           "Custom_ROS" = fft_add$Custom_ROS, 
+                           "Available_fuel_potential" = fft_add$Available_fuel_potential,
+                           "Crown_fire_potential" = fft_add$Crown_fire_potential)
 
 #################################################################################################
 #################################################################################################
@@ -273,6 +303,7 @@ for(z in 1:length(fccsVar_col))
     }
   
   #Show test results
+  print(fccsVar_name[z])
   print(test_results)
   print(na_fuelbeds)
   
@@ -315,24 +346,18 @@ for(z in 1:length(fccsVar_col))
     
     #Save stand map.
     cat(c(t(maps_out[[i]])), file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
-    }
+   }
   
   #################################################################################################
   #################################################################################################
   #CREATE CHANGE MAPS AND ASSOCIATED METRICS
-  maps_out_zero <- maps_out
-  for(i in 1:length(maps_out_zero))
-    {
-    maps_out_zero[[i]][maps_out_zero[[i]] < 0] <- 0
-    }
-  
   maps_out_change <- list()
-  change_out <- c("10_00.asc","20_00.asc","30_00.asc", "50_00.asc", "50_00.asc")
-  b <- c(3,5,7,9,11)
+  change_out <- c("10_00.asc","20_00.asc","30_00.asc", "40_00.asc", "50_00.asc")
+  map_numbers <- c(3,5,7,9,11)
   
   for(i in 1:length(change_out))
     {
-    maps_out_change[[i]] <- maps_out[[b[i]]] - maps_out[[1]]
+    maps_out_change[[i]] <- maps_out[[map_numbers[i]]] - maps_out[[1]]
     }
   
   for(i in 1:length(change_out))
@@ -363,23 +388,123 @@ for(z in 1:length(fccsVar_col))
   for(i in 1:length(change_out))
     {
     #Print header information to map
-    cat(line1, file = paste(change_out[i], sep = ""), fill = T, append = T)#
-    cat(line2, file = paste(change_out[i], sep = ""), fill = T, append = T)#
-    cat(line3, file = paste(change_out[i], sep = ""), fill = T, append = T)#
-    cat(line4, file = paste(change_out[i], sep = ""), fill = T, append = T)#
-    cat(line5, file = paste(change_out[i], sep = ""), fill = T, append = T)#
-    cat(line6, file = paste(change_out[i], sep = ""), fill = T, append = T)#
+    cat(line1, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
+    cat(line2, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
+    cat(line3, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
+    cat(line4, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
+    cat(line5, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
+    cat(line6, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
     
     #Save stand map.
     cat(c(t(maps_out_change[[i]])), file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
   }
 }
 
+#################################################################################################
+#################################################################################################
+#################################################################################################
+#################################################################################################
+#GENERATE MAPS THAT SHOW FUELBED CONDITIONS
+
+#Remove maps out objects to free up RAM space
+rm(maps_out, maps_out_change, maps_out_zero)
+
+#################################################################################################
+#################################################################################################
+#Remove the -9999 as No Value and replace with 1000000 so I can disect fuelbed numbers.
+for(i in 1:length(maps_in))
+{
+  maps_in[[i]][maps_in[[i]] == -9999] <- 1000000
+}
+
+#################################################################################################
+#################################################################################################
+#Create vectors and remove scientific notation
+maps_in_character <- list()
+for(i in 1:length(maps_in))
+{
+  maps_in_character[[i]] <- as.character(maps_in[[i]])
+  options(scipen = 7)
+}  
+
+#Change to vector
+vector_in_character <- list()
+for(i in 1:length(maps_in))
+{
+  vector_in_character[[i]] <- as.vector(maps_in_character[[i]])
+}  
+
+#Create lists to hold ouputs
+maps_cover <- list()
+maps_mfri <- list()
+
+#Split out digits from fuelbed numbers
+for(i in 1:length(maps_in))
+{
+  split_0 <- unlist(strsplit(vector_in_character[[i]], vector()))
+  split_cover <- as.numeric(split_0[seq(3,length(split_0),7)])
+  split_mfri <- as.numeric(split_0[seq(5,length(split_0),7)])
+  maps_cover[[i]] <- matrix(split_cover, f.head@nrows, f.head@ncols)
+  maps_mfri[[i]] <-  matrix(split_mfri, f.head@nrows, f.head@ncols)
+  print(i)
+  }
+
+#################################################################################################
+#################################################################################################
+#Create vectors from metadata list
+md.desc <- as.vector(unlist(metadata[,1]))
+md.valu <- as.vector(unlist(metadata[,2]))
+
+#Seprate header metadata into seperate lines.
+line1 <- paste(paste(md.desc[1]), paste("         ", md.valu[1]))
+line2 <- paste(paste(md.desc[2]), paste("         ", md.valu[2]))
+line3 <- paste(paste(md.desc[3]), paste("     ", md.valu[3]))
+line4 <- paste(paste(md.desc[4]), paste("     ", md.valu[4]))
+line5 <- paste(paste(md.desc[5]), paste("      ", md.valu[5]))
+line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
+
+for(y in 1:length(fuelbedVar_name))
+{
+  if(y == 1)
+  {
+    condition_out <- maps_cover
+    } else
+    {
+      condition_out <- maps_mfri
+    }
+
+  #Set working directory for output map.
+  setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_out/r_", run, "_", fuelbedVar_name[y], 
+              "/ascii", sep = ""))
+  
+  #Set up vector to hold file out names
+  fuelbed_condition_filenames_out <- vector()
+  
+  #Save output maps
+  for(i in 1:length(intervals))
+    {
+    #Set up filenames for outgoing maps
+    fuelbed_condition_filenames_out[i] <- paste(fuelbedVar_out[y], run, rx_fire, intervals[i], ".asc", sep = "")
+    
+    #Print header information to map
+    cat(line1, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
+    cat(line2, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
+    cat(line3, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
+    cat(line4, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
+    cat(line5, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
+    cat(line6, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
+    
+    #Save stand map.
+    cat(c(t(condition_out[[i]])), file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
+    print(c(y, i))
+  }
+}
+
+#################################################################################################
+#################################################################################################
+#  END
 
 
 
 
-
-#Error in setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run,  : 
-#                       cannot change working directory
 
