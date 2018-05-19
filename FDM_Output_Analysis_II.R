@@ -23,22 +23,100 @@
 
 #################################################################################################
 #################################################################################################
-#RUN INPUTS
+#LIBRARIES
 
 #Libraries
 library(raster)
+
+
+#################################################################################################
+#################################################################################################
+#DATA INPUTS
+
+#################################################################################################
+setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888_in/fuelbed_no", sep = ""))
+
+#Import a single raster file to use header data to reference number of columns for matrix(scan())
+f.head <- raster("f088810000.asc")
+maps_orig <- matrix(scan("f088810000.asc",skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+#50K/YEAR RUN
+
+#Set up a list to hold input and output maps
+rx_fire <- c("050", "075", "100")
+run_number <- c("6047", "abb6", "0888")
+
+#Output intervals
+intervals <- c("05", as.character(seq(10,50,5)))
+
+#Input file pre-fix
+folder_in <- "availableFuels"
+prefix_in <- "y"
+
+
+maps_050 <- list()
+maps_075 <- list()
+maps_100 <- list()
+#maps_125 <- list()
+
+for(z in 1:length(rx_fire))
+{
+  maps_xxx <- list()
+  
+  #Set working directory
+  setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run_number[z], "_out/r_", 
+              run_number[z], "_", folder_in, "/ascii", sep = ""))
+  
+  #Set up filenames for incoming FDM maps
+  filenames_in <- vector()
+  
+  for(i in 1:length(intervals))
+    {
+    filenames_in[i] <- paste(prefix_in, run_number[z], rx_fire[z], intervals[i], ".asc", sep = "")
+    }
+  
+  #Import .asc files
+  for(i in 1:length(intervals))
+    {
+    maps_xxx[[i]] <- matrix(scan(filenames_in[i],skip = f.head@file@offset),ncol=f.head@ncols,byrow=T)
+  }
+  
+  if(z == 1)
+    {
+    maps_050 <- maps_xxx
+    } else
+    {
+      if(z == 2)
+        {
+        maps_075 <- maps_xxx
+        } else
+        {
+          if(z == 3)
+            {
+            maps_100 <- maps_xxx
+            } else
+            {
+              maps_125 <- maps_xxx
+            }
+        }
+    }
+  }
+
+
+
+
+
+
 
 #FFT OUPUT
 #Variable of interest
 #List column number in fft output table for this variable:
 #List name of variable as it will appear in outgoing file structure.
-fccsVar_col <- c(3,4,5,6,7,8,9)
-fccsVar_name <- c("fineFuelLoad", "forestFloorLoad", "totalFuelLoad","flameLength", "rateOfSpread", 
-                  "availableFuels", "crownFirePotential")
-
-#fccsVar_col <- c(7,8,9)
-#fccsVar_name <- c("rateOfSpread", 
+#fccsVar_col <- c(3,4,5,6,7,8,9)
+#fccsVar_name <- c("fineFuelLoad", "forestFloorLoad", "totalFuelLoad","flameLength", "rateOfSpread", 
 #                  "availableFuels", "crownFirePotential")
+
+fccsVar_col <- c(7,8,9)
+#fccsVar_name <- c("rateOfSpread", "availableFuels", "crownFirePotential")
 
 #FUELBED CONDITIONS
 #Variable of interest
@@ -46,15 +124,12 @@ fccsVar_name <- c("fineFuelLoad", "forestFloorLoad", "totalFuelLoad","flameLengt
 fuelbedVar_name <- c("cover", "mfri")
 fuelbedVar_out <- c("r", "s")
 
-#Run Parameters
-type_in <- "f"
-type_out <- c("t", "u", "v", "w", "x", "y", "z")
-#type_out <- c("x", "y", "z")
 
-run <- "1003"
-rx_fire <- "125"
-intervals <- c("00", "25", "45")
-#intervals <- c("00", "05", as.character(seq(10,50,5)))
+#type_out <- c("t", "u", "v", "w", "x", "y", "z")
+type_out <- c("x", "y", "z")
+
+run <- "0888"
+rx_fire <- "100"
 
 #Create a lookup table to be printed to the directory as a reference.
 file_out_lookup <- data.frame(file_start_letter = type_out, hazard_measure = fccsVar_name)
@@ -90,13 +165,10 @@ metadata <- read.table(paste("eglin_raster_metadata.txt", sep = ""),
 options(digits = 15)
 
 #################################################################################################
-setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888_in/fuelbed_no", sep = ""))
+setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_in/fuelbed_no", sep = ""))
 
 #Import a single raster file to use header data to reference number of columns for matrix(scan())
-f.head <- raster("f088810000.asc")
-
-#################################################################################################
-setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_in/fuelbed_no", sep = ""))
+f.head <- raster(filenames_in[1])
 
 #Set up a list to hold input and output maps
 maps_in <- list()
@@ -352,16 +424,13 @@ for(z in 1:length(fccsVar_col))
     #Save stand map.
     cat(c(t(maps_out[[i]])), file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
    }
-
+  
   #################################################################################################
   #################################################################################################
   #CREATE CHANGE MAPS AND ASSOCIATED METRICS
   maps_out_change <- list()
-  #change_out <- c("10_00.asc","20_00.asc","30_00.asc", "40_00.asc", "50_00.asc")
-  #map_numbers <- c(3,5,7,9,11)
-  change_out <- c("25_00.asc","45_00.asc")
-  map_numbers <- c(2,3)
-  
+  change_out <- c("10_00.asc","20_00.asc","30_00.asc", "40_00.asc", "50_00.asc")
+  map_numbers <- c(3,5,7,9,11)
   
   for(i in 1:length(change_out))
     {
