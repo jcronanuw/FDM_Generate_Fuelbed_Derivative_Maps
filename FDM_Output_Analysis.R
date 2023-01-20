@@ -47,27 +47,29 @@ fuelbedVar_name <- c("cover", "mfri")
 fuelbedVar_out <- c("r", "s")
 
 #Run Parameters
-type_in <- "f"
+type_in <- "fab_"
 type_out <- c("t", "u", "v", "w", "x", "y", "z")
 #type_out <- c("x", "y", "z")
 
-run <- "1003"
-rx_fire <- "125"
-intervals <- c("00", "25", "45")
+run <- "001"
+rx_fire <- "050"
+rx2 <- "225"
+intervals <- c("05", "10", "15", "20", "25", "30", "35", "40", "45", "50")
 #intervals <- c("00", "05", as.character(seq(10,50,5)))
 
 #Create a lookup table to be printed to the directory as a reference.
 file_out_lookup <- data.frame(file_start_letter = type_out, hazard_measure = fccsVar_name)
 
 #Save file
-setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_out", sep = ""))
-cat(c(t(file_out_lookup)), file = "file_out_lookup.txt", fill = T, append = T)#
+# --- Jan 18, 2023 ---- DO YOU NEED THIS?
+#setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_out", sep = ""))
+#cat(c(t(file_out_lookup)), file = "file_out_lookup.txt", fill = T, append = T)#
 
 #Set up filenames for incoming FDM maps
 filenames_in <- vector()
 for(i in 1:length(intervals))
 {
-  filenames_in[i] <- paste(type_in, run, rx_fire, intervals[i], ".asc", sep = "")
+  filenames_in[i] <- paste(type_in, rx_fire, "k_", run, rx2, intervals[i], ".asc", sep = "")
 }
 
 #################################################################################################
@@ -91,13 +93,18 @@ metadata <- read.table(paste("eglin_raster_metadata.txt", sep = ""),
 options(digits = 15)
 
 #################################################################################################
-setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_0888_in/fuelbed_no", sep = ""))
+setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation", 
+            "/4_Chapter_4/2023_FDM_Simulation_Outputs/usfs_sef_outputs_FDM/results_rab_050k_001", 
+            sep = ""))
 
 #Import a single raster file to use header data to reference number of columns for matrix(scan())
-f.head <- raster("f088810000.asc")
+f.head <- raster("fab_050k_00122505.asc")
 
 #################################################################################################
-setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_in/fuelbed_no", sep = ""))
+setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation", 
+            "/4_Chapter_4/2023_FDM_Simulation_Outputs/usfs_sef_outputs_FDM/results_rab_", 
+            rx_fire, "k_", run, 
+            sep = ""))
 
 #Set up a list to hold input and output maps
 maps_in <- list()
@@ -110,7 +117,7 @@ for(i in 1:length(intervals))
 
 #################################################################################################
 #Swicth Working Directories
-setwd("C:/Users/jcronan/Documents/GitHub/EglinAirForceBase/inputs")
+setwd("C:/Users/jcronan/OneDrive - USDA/Documents/GitHub/EglinAirForceBase/inputs")
 #Import master fuelbed lookup table
 lut <- read.csv("sef_lut_all.csv", header=TRUE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
 
@@ -190,12 +197,10 @@ for(i in 1:length(predicted_pigs$fuelbed))
 #Replace NA values with zero
 fft_add[is.na(fft_add) == T] <- 0
 
-
 #Measures I need to create from fft outputs
 fine_surface_fuel_load <- fft_add$LLM_litter_load + fft_add$Herb_primary_load + 
   fft_add$Shrub_primary_crown_load + fft_add$Woody_sound_1hr_load
 forest_floor_load <- fft_add$LLM_litter_load + fft_add$Ground_upperduff_load
-
 
 #Create a data.frame that has variables you want to analyze.
 fft_complete <- data.frame("Fuelbed_number" = fft_add$Fuelbed_number, 
@@ -336,8 +341,23 @@ for(z in 1:length(fccsVar_col))
   line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
   
   #Set working directory for output maps
-  setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_out/r_", run, "_", fccsVar_name[z], 
-              "/ascii", sep = ""))
+  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
+             "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, sep = ""))
+  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
+                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out", sep = ""))
+  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
+                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out/r_", 
+                   run, "_", fccsVar_name[z], sep = ""))
+  setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation", 
+                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out/r_", 
+                   run, "_", fccsVar_name[z], sep = ""))
+  
+  a <- c(line1, line2, line3, line4, line5, line6, t(maps_out[[i]]))
+  
+  file <- "t00105050.asc"
+  write.table(a, file=file, row.names=FALSE, col.names=FALSE, sep=", ",
+              append=TRUE, quote=FALSE)
+  
   
   #Save output maps
   for(i in 1:length(intervals))
@@ -358,10 +378,9 @@ for(z in 1:length(fccsVar_col))
   #################################################################################################
   #CREATE CHANGE MAPS AND ASSOCIATED METRICS
   maps_out_change <- list()
-  #change_out <- c("10_00.asc","20_00.asc","30_00.asc", "40_00.asc", "50_00.asc")
-  #map_numbers <- c(3,5,7,9,11)
-  change_out <- c("25_00.asc","45_00.asc")
-  map_numbers <- c(2,3)
+  change_out <- c("05_00.asc", "10_00.asc", "15_00.asc", "20_00.asc", "25_00.asc", "30_00.asc", 
+                  "35_00.asc", "40_00.asc", "45_00.asc", "50_00.asc")
+  map_numbers <- 1:10
   
   
   for(i in 1:length(change_out))
@@ -390,8 +409,16 @@ for(z in 1:length(fccsVar_col))
   line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
   
   #Set working directory for output maps
-  setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_out/r_", run, "_", fccsVar_name[z], 
-              "/ascii_change", sep = ""))
+  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
+                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, sep = ""))
+  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
+                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out", sep = ""))
+  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
+                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out/r_", 
+                   run, "_", fccsVar_name[z], sep = ""))
+  setwd(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
+              "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out/r_", 
+              run, "_", fccsVar_name[z], sep = ""))
   
   #Save output maps
   for(i in 1:length(change_out))
