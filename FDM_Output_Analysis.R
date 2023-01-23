@@ -27,6 +27,7 @@
 
 #Libraries
 library(raster)
+test <- 0
 
 #FFT OUPUT
 #Variable of interest
@@ -36,9 +37,12 @@ fccsVar_col <- c(3,4,5,6,7,8,9)
 fccsVar_name <- c("fineFuelLoad", "forestFloorLoad", "totalFuelLoad","flameLength", "rateOfSpread", 
                   "availableFuels", "crownFirePotential")
 
-#fccsVar_col <- c(7,8,9)
-#fccsVar_name <- c("rateOfSpread", 
-#                  "availableFuels", "crownFirePotential")
+#Create definitions for change maps
+fccsVar_changeName <- vector()
+for(i in 1:length(fccsVar_name))
+  {
+  fccsVar_changeName[i] <- paste("change_in_", fccsVar_name[i], sep = "")
+  }
 
 #FUELBED CONDITIONS
 #Variable of interest
@@ -49,9 +53,24 @@ fuelbedVar_out <- c("r", "s")
 #Run Parameters
 type_in <- "fab_"
 type_out <- c("t", "u", "v", "w", "x", "y", "z")
-#type_out <- c("x", "y", "z")
+type_out_change <- c("c", "d", "e", "f", "g", "h", "i")
 
-run <- "001"
+#Create a table that provides definitions for file prefix letters
+file_prefix_key <- data.frame(prefix = c(fuelbedVar_out, type_out,
+                                         type_out_change),
+                              definition = c(fuelbedVar_name, fccsVar_name,
+                                             fccsVar_changeName))
+
+#Save table
+if(test == 1)
+  {
+  setwd(paste("D:/FDM_Simulations_Post_Processing_Step_01", sep = ""))
+  write.csv(file_prefix_key, file = paste("file_prefix_key.csv", sep = ""))
+  } else {}
+
+
+run_in <- "001"
+run_out <- substring(run_in, 2, 3)
 rx_fire <- "050"
 rx2 <- "225"
 intervals <- c("05", "10", "15", "20", "25", "30", "35", "40", "45", "50")
@@ -69,7 +88,7 @@ file_out_lookup <- data.frame(file_start_letter = type_out, hazard_measure = fcc
 filenames_in <- vector()
 for(i in 1:length(intervals))
 {
-  filenames_in[i] <- paste(type_in, rx_fire, "k_", run, rx2, intervals[i], ".asc", sep = "")
+  filenames_in[i] <- paste(type_in, rx_fire, "k_", run_in, rx2, intervals[i], ".asc", sep = "")
 }
 
 #################################################################################################
@@ -103,7 +122,7 @@ f.head <- raster("fab_050k_00122505.asc")
 #################################################################################################
 setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation", 
             "/4_Chapter_4/2023_FDM_Simulation_Outputs/usfs_sef_outputs_FDM/results_rab_", 
-            rx_fire, "k_", run, 
+            rx_fire, "k_", run_in, 
             sep = ""))
 
 #Set up a list to hold input and output maps
@@ -234,7 +253,7 @@ for(z in 1:length(fccsVar_col))
   filenames_out <- vector()
   for(i in 1:length(intervals))
     {
-    filenames_out[i] <- paste(type_out[z], run, rx_fire, intervals[i], ".asc", sep = "")
+    filenames_out[i] <- paste(type_out[z], rx_fire, "_", run_out, "_", intervals[i], ".asc", sep = "")
     }
   
   #################################################################################################
@@ -288,9 +307,10 @@ for(z in 1:length(fccsVar_col))
   test_results <- data.frame(map = intervals, 
                              multiples = rep(0,length(intervals)), 
                              fuelbeds_no_fccsVar = rep(0,length(intervals)), 
-                             fuelbeds_na__fccsVar = rep(0,length(intervals)))
+                             fuelbeds_na__fccsVar = rep(0,length(intervals)),
+                             na_fuelbeds = rep(0,length(intervals)))
   
-  na_fuelbeds <- list()
+  na_fuelbeds_possible_errors_if_this_contains_values <- list()
   
   for(a in 1:length(intervals))
     {
@@ -301,6 +321,7 @@ for(z in 1:length(fccsVar_col))
       {
       crosswalk_values[i] <- length(unique(test_var[test_base == new_fb[i]])) 
       }
+
     #Results should be 0, 1
     test_results[a,2] <- ifelse(any(unique(crosswalk_values) %in% c(0,1)),"OK", "ERROR")
     
@@ -310,14 +331,24 @@ for(z in 1:length(fccsVar_col))
     
     test_results[a,4] <- ifelse(length(test_var[is.na(test_var) == T]) == length(test_base[test_base == -9999]), 
                                 "OK", "ERROR")
-    na_fuelbeds[[a]] <- sort(unique(test_base[is.na(test_var) == T]))
+    
+    na_fuelbeds_possible_errors_if_this_contains_values[[a]] <- sort(unique(test_base[is.na(test_var) == T]))
+    if(length(na_fuelbeds_possible_errors_if_this_contains_values[[a]]) > 1)
+    { } else
+    {
+      test_results[[a,5]] <- na_fuelbeds_possible_errors_if_this_contains_values[[a]]
+      na_fuelbeds_possible_errors_if_this_contains_values[[a]] <- 0
     }
+  }
   
-  #Show test results
-  print(fccsVar_name[z])
-  print(test_results)
-  print(na_fuelbeds)
-  
+  #Save test results
+  setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation/4_Chapter_4/2023_FDM_Post_Processing/Step_01/reports", sep = ""))
+  write.csv(test_results, file = paste("test_results_", substring(filenames_out[1], 1, 7), "_", 
+                                       fccsVar_name[z], ".csv", sep = ""))
+  write.csv(na_fuelbeds_possible_errors_if_this_contains_values, 
+            file = paste("na_fuelbeds_possible_errors_if_this_contains_values_", 
+                         substring(filenames_out[1], 1, 7), "_", fccsVar_name[z], ".csv", sep = ""))
+
   #################################################################################################
   #################################################################################################
   #Replace NA values with -9999. Ascii to raster batch conversion script cannot handle NA values.
@@ -340,55 +371,43 @@ for(z in 1:length(fccsVar_col))
   line5 <- paste(paste(md.desc[5]), paste("      ", md.valu[5]))
   line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
   
-  #Set working directory for output maps
-  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
-             "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, sep = ""))
-  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
-                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out", sep = ""))
-  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
-                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out/r_", 
-                   run, "_", fccsVar_name[z], sep = ""))
-  setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation", 
-                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out/r_", 
-                   run, "_", fccsVar_name[z], sep = ""))
-  
-  a <- c(line1, line2, line3, line4, line5, line6, t(maps_out[[i]]))
-  
-  file <- "t00105050.asc"
-  write.table(a, file=file, row.names=FALSE, col.names=FALSE, sep=", ",
-              append=TRUE, quote=FALSE)
-  
+  #Reset working directory
+  setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation/4_Chapter_4/2023_FDM_Post_Processing/Step_01/maps", sep = ""))
   
   #Save output maps
   for(i in 1:length(intervals))
     {
-    #Print header information to map
-    cat(line1, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line2, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line3, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line4, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line5, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line6, file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
-    
     #Save stand map.
-    cat(c(t(maps_out[[i]])), file = paste(filenames_out[i], sep = ""), fill = T, append = T)#
+    #Combine metadata and pixel attribute into a single vector.
+    a <- c(line1, line2, line3, line4, line5, line6, t(maps_out[[i]]))
+    
+    #Name file
+    file_out <- filenames_out[i]
+    write.table(a, file=file_out, row.names=FALSE, col.names=FALSE, sep=", ",
+                append=TRUE, quote=FALSE)
    }
 
   #################################################################################################
   #################################################################################################
   #CREATE CHANGE MAPS AND ASSOCIATED METRICS
+  
+  #Set up filenames for outgoing maps
+  filenames_out_change <- vector()
+  for(i in 1:length(intervals))
+  {
+    filenames_out_change[i] <- paste(type_out_change[z], rx_fire, "_", run_out, "_", intervals[i], ".asc", sep = "")
+  }
+  
   maps_out_change <- list()
-  change_out <- c("05_00.asc", "10_00.asc", "15_00.asc", "20_00.asc", "25_00.asc", "30_00.asc", 
-                  "35_00.asc", "40_00.asc", "45_00.asc", "50_00.asc")
   map_numbers <- 1:10
   
   
-  for(i in 1:length(change_out))
+  for(i in 1:length(intervals))
     {
     maps_out_change[[i]] <- maps_out[[map_numbers[i]]] - maps_out[[1]]
     }
   
-  for(i in 1:length(change_out))
+  for(i in 1:length(filenames_out_change))
     {
     maps_out_change[[i]][maps_in[[1]] %in% zeros] <- -8888
     maps_out_change[[i]][maps_in[[1]] == -9999] <- -9999
@@ -408,31 +427,17 @@ for(z in 1:length(fccsVar_col))
   line5 <- paste(paste(md.desc[5]), paste("      ", md.valu[5]))
   line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
   
-  #Set working directory for output maps
-  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
-                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, sep = ""))
-  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
-                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out", sep = ""))
-  dir.create(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
-                   "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out/r_", 
-                   run, "_", fccsVar_name[z], sep = ""))
-  setwd(paste("C:/Users/jcronan/Box/01. james.cronan Workspace/Research/UW_PHD/Dissertation", 
-              "/4_Chapter_4/2023_FDM_Post_Processing/area_burned_", rx_fire, "/run_", run, "_out/r_", 
-              run, "_", fccsVar_name[z], sep = ""))
-  
   #Save output maps
-  for(i in 1:length(change_out))
+  for(i in 1:length(intervals))
     {
-    #Print header information to map
-    cat(line1, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
-    cat(line2, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
-    cat(line3, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
-    cat(line4, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
-    cat(line5, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
-    cat(line6, file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
-    
     #Save stand map.
-    cat(c(t(maps_out_change[[i]])), file = paste(type_out[z], "_", change_out[i], sep = ""), fill = T, append = T)#
+    #Combine metadata and pixel attribute into a single vector.
+    a <- c(line1, line2, line3, line4, line5, line6, t(maps_out_change[[i]]))
+    
+    #Name file
+    file <- filenames_out_change[i]
+    write.table(a, file=file, row.names=FALSE, col.names=FALSE, sep=", ",
+                append=TRUE, quote=FALSE)
   }
 }
 
@@ -443,7 +448,7 @@ for(z in 1:length(fccsVar_col))
 #GENERATE MAPS THAT SHOW FUELBED CONDITIONS
 
 #Remove maps out objects to free up RAM space
-rm(maps_out, maps_out_change, maps_out_zero)
+rm(maps_out, maps_out_change)
 
 #################################################################################################
 #################################################################################################
@@ -482,6 +487,7 @@ for(i in 1:length(maps_in))
   split_mfri <- as.numeric(split_0[seq(5,length(split_0),7)])
   maps_cover[[i]] <- matrix(split_cover, f.head@nrows, f.head@ncols)
   maps_mfri[[i]] <-  matrix(split_mfri, f.head@nrows, f.head@ncols)
+  rm(split_0, split_cover, split_mfri)
   print(i)
   }
 
@@ -509,30 +515,25 @@ for(y in 1:length(fuelbedVar_name))
       condition_out <- maps_mfri
     }
 
-  #Set working directory for output map.
-  setwd(paste("C:/usfs_cronan_gis/SEF/FDM_IAWF_runs/run_", run, "_out/r_", run, "_", fuelbedVar_name[y], 
-              "/ascii", sep = ""))
-  
-  #Set up vector to hold file out names
-  fuelbed_condition_filenames_out <- vector()
+  #Set up filenames for outgoing maps
+  filenames_out_fuelbed <- vector()
+  for(i in 1:length(intervals))
+  {
+    filenames_out_fuelbed[i] <- paste(fuelbedVar_out[y], rx_fire, "_", run_out, "_", intervals[i], ".asc", sep = "")
+  }
   
   #Save output maps
   for(i in 1:length(intervals))
     {
-    #Set up filenames for outgoing maps
-    fuelbed_condition_filenames_out[i] <- paste(fuelbedVar_out[y], run, rx_fire, intervals[i], ".asc", sep = "")
-    
-    #Print header information to map
-    cat(line1, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line2, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line3, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line4, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line5, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
-    cat(line6, file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
     
     #Save stand map.
-    cat(c(t(condition_out[[i]])), file = paste(fuelbed_condition_filenames_out[i], sep = ""), fill = T, append = T)#
-    print(c(y, i))
+    #Combine metadata and pixel attribute into a single vector.
+    a <- c(line1, line2, line3, line4, line5, line6, t(condition_out[[i]]))
+    
+    #Name file
+    file <- filenames_out_fuelbed[i]
+    write.table(a, file=file, row.names=FALSE, col.names=FALSE, sep=", ",
+                append=TRUE, quote=FALSE)
   }
 }
 
