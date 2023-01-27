@@ -27,7 +27,10 @@
 
 #Libraries
 library(raster)
-test <- 0
+
+#Set this to one if you want to export a key that explains what variable each file
+#prefix denotes
+prefixKey <- 0
 
 #FFT OUPUT
 #Variable of interest
@@ -62,11 +65,11 @@ file_prefix_key <- data.frame(prefix = c(fuelbedVar_out, type_out,
                                              fccsVar_changeName))
 
 #Save table
-#if(test == 1)
-#  {
-#  setwd(paste("D:/FDM_Simulations_Post_Processing_Step_01", sep = ""))
-#  write.csv(file_prefix_key, file = paste("file_prefix_key.csv", sep = ""))
-#  } else {}
+if(prefixKey == 1)
+  {
+  setwd(paste("D:/FDM_Simulations_Post_Processing_Step_01", sep = ""))
+  write.csv(file_prefix_key, file = paste("file_prefix_key.csv", sep = ""))
+  } else {}
 
 
 run_in <- c("001", "002", "003", "004", "005", "006", "007", "008", "009", "010")
