@@ -62,16 +62,16 @@ file_prefix_key <- data.frame(prefix = c(fuelbedVar_out, type_out,
                                              fccsVar_changeName))
 
 #Save table
-if(test == 1)
-  {
-  setwd(paste("D:/FDM_Simulations_Post_Processing_Step_01", sep = ""))
-  write.csv(file_prefix_key, file = paste("file_prefix_key.csv", sep = ""))
-  } else {}
+#if(test == 1)
+#  {
+#  setwd(paste("D:/FDM_Simulations_Post_Processing_Step_01", sep = ""))
+#  write.csv(file_prefix_key, file = paste("file_prefix_key.csv", sep = ""))
+#  } else {}
 
 
 run_in <- c("001", "002", "003", "004", "005", "006", "007", "008", "009", "010")
-rx_fire <- "050"
-rx2 <- "225"
+rx_fire <- "075"
+rx2 <- "337"
 intervals <- c("05", "10", "15", "20", "25", "30", "35", "40", "45", "50")
 #intervals <- c("00", "05", as.character(seq(10,50,5)))
 
@@ -85,7 +85,7 @@ file_out_lookup <- data.frame(file_start_letter = type_out, hazard_measure = fcc
 
 #################################################################################################
 #Set working directory
-setwd("C:/Users/jcronan/OneDrive - USDA/Documents/GitHub/FDM-Eglin-Analysis/inputs")
+setwd("C:/Users/jcron/Documents/GitHub/FDM-Eglin-Analysis/inputs")
 
 
 #Import input parameters
@@ -104,15 +104,14 @@ metadata <- read.table(paste("eglin_raster_metadata.txt", sep = ""),
 options(digits = 15)
 
 #################################################################################################
-setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation/",  
-            "4_Chapter_4/2023_FDM_Simulation_Outputs/usfs_sef_outputs_FDM/results_rab_050k_001", 
+setwd(paste("C:/Users/jcron/Documents/2023_FDM_Simulation_Data/Step_01_FDM_Outputs/results_rab_050k_001", 
             sep = ""))
 
 #Import a single raster file to use header data to reference number of columns for matrix(scan())
 f.head <- raster("fab_050k_00122505.asc")
 
 #################################################################################################
-setwd(paste("C:/Users/jcronan/OneDrive - USDA/Documents/GitHub/EglinAirForceBase/inputs", 
+setwd(paste("C:/Users/jcron/Documents/GitHub/EglinAirForceBase/inputs", 
             sep = ""))
 
 #Open year 0 fuelbed map
@@ -132,8 +131,7 @@ for(aa in 1:length(run_in))
   }
   
   #################################################################################################
-  setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation", 
-            "/4_Chapter_4/2023_FDM_Simulation_Outputs/usfs_sef_outputs_FDM/results_rab_", 
+  setwd(paste("C:/Users/jcron/Documents/2023_FDM_Simulation_Data/Step_01_FDM_Outputs/results_rab_", 
             rx_fire, "k_", run_in[aa], 
             sep = ""))
 
@@ -165,7 +163,7 @@ for(aa in 1:length(run_in))
   
   #################################################################################################
   #Swicth Working Directories
-  setwd("C:/Users/jcronan/OneDrive - USDA/Documents/GitHub/EglinAirForceBase/inputs")
+  setwd("C:/Users/jcron/Documents/GitHub/EglinAirForceBase/inputs")
   #Import master fuelbed lookup table
   lut <- read.csv("sef_lut_all.csv", header=TRUE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
   
@@ -274,14 +272,14 @@ for(aa in 1:length(run_in))
     #################################################################################################
     #Convert maps to vectors (will result in quicker crosswalks with FFT FCCS fuelbed properties).
     base_vector <- list()
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       base_vector[[i]] <- as.vector(maps_in2[[i]])
     }
     
     #Set up filenames for outgoing maps
     filenames_out <- vector()
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       filenames_out[i] <- paste(type_out[z], rx_fire, "_", run_out, "_", intervals2[i], ".asc", sep = "")
     }
@@ -292,7 +290,7 @@ for(aa in 1:length(run_in))
     var_vector <- list()
     
     #Crosswalk fuelbed numbers with crosswalk variables
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       var_vector[[i]] <- as.vector(fft_complete[[fccsVar_col[z]]])[match(base_vector[[i]], 
                                                                          predicted_pigs$fuelbed)]
@@ -305,7 +303,7 @@ for(aa in 1:length(run_in))
     maps_out <- list()
     
     #Convert list of output vectors into a matrix.
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       maps_out[[i]] <- matrix(var_vector[[i]], f.head@nrows, f.head@ncols)
     }
@@ -316,13 +314,13 @@ for(aa in 1:length(run_in))
     zeros <- c(5099000, 6000000)
     
     #Set values from NA to zero for developed land and water fuelbeds (not procssed through FFT)
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       maps_out[[i]][maps_in2[[i]] %in% zeros] <- 0
     }
     
     #Assign negative number to development and water fuelbeds
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       assignments <- seq((-1*length(zeros)),-1,1)
       for (b in 1:length(zeros))
@@ -343,7 +341,7 @@ for(aa in 1:length(run_in))
     
     na_fuelbeds_possible_errors_if_this_contains_values <- list()
     
-    for(c in 2:length(intervals2))
+    for(c in 1:length(intervals2))
     {
       test_base <- maps_in2[[aa]]
       test_var <- maps_out[[aa]]
@@ -373,7 +371,7 @@ for(aa in 1:length(run_in))
     }
     
     #Save test results
-    setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation/4_Chapter_4/2023_FDM_Post_Processing/Step_01/reports", sep = ""))
+    setwd(paste("C:/Users/jcron/Documents/2023_FDM_Simulation_Data/Step_02_Fuelbed_Derivative_Maps", sep = ""))
     write.csv(test_results, file = paste("test_results_", substring(filenames_out[1], 1, 7), "_", 
                                          fccsVar_name[z], ".csv", sep = ""))
     write.csv(na_fuelbeds_possible_errors_if_this_contains_values, 
@@ -383,7 +381,7 @@ for(aa in 1:length(run_in))
     #################################################################################################
     #################################################################################################
     #Replace NA values with -9999. Ascii to raster batch conversion script cannot handle NA values.
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       maps_out[[i]][is.na(maps_out[[i]]) == T] <- -9999
     }
@@ -403,10 +401,10 @@ for(aa in 1:length(run_in))
     line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
     
     #Reset working directory
-    setwd(paste("C:/Users/jcronan/Box/01_james_cronan_Workspace/Research/UW_PHD/Dissertation/4_Chapter_4/2023_FDM_Post_Processing/Step_01/maps", sep = ""))
+    setwd(paste("C:/Users/jcron/Documents/2023_FDM_Simulation_Data/Step_02_Fuelbed_Derivative_Maps", sep = ""))
     
     #Save output maps
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       #Save stand map.
       #Combine metadata and pixel attribute into a single vector.
@@ -424,16 +422,16 @@ for(aa in 1:length(run_in))
     
     #Set up filenames for outgoing maps
     filenames_out_change <- vector()
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       filenames_out_change[i] <- paste(type_out_change[z], rx_fire, "_", run_out, "_", intervals2[i], ".asc", sep = "")
     }
     
     maps_out_change <- list()
-    map_numbers <- 2:length(intervals2)
+    map_numbers <- 1:length(intervals2)
     
     
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       maps_out_change[[i]] <- maps_out[[map_numbers[i]]] - maps_out[[1]]
     }
@@ -459,7 +457,7 @@ for(aa in 1:length(run_in))
     line6 <- paste(paste(md.desc[6]), paste("  ", md.valu[6]))
     
     #Save output maps
-    for(i in 2:length(intervals2))
+    for(i in 1:length(intervals2))
     {
       #Save stand map.
       #Combine metadata and pixel attribute into a single vector.
