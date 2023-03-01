@@ -30,7 +30,7 @@ library(raster)
 
 #Set this to one if you want to export a key that explains what variable each file
 #prefix denotes
-prefixKey <- 0
+prefixKey <- 1
 
 #FFT OUPUT
 #Variable of interest
@@ -67,7 +67,7 @@ file_prefix_key <- data.frame(prefix = c(fuelbedVar_out, type_out,
 #Save table
 if(prefixKey == 1)
   {
-  setwd(paste("D:/FDM_Simulations_Post_Processing_Step_01", sep = ""))
+  setwd(paste("D:/FDM_2023_Simulation_Data/Step_02_Fuelbed_Derivative_Maps", sep = ""))
   write.csv(file_prefix_key, file = paste("file_prefix_key.csv", sep = ""))
   } else {}
 
